@@ -1,6 +1,6 @@
--- [[ ★ KlNZ HUB by klun.z - TSB V8.1 (Fixed TSB Hotbar UIStroke Error + No Clip) ★ ]] --
+-- [[ ★ KlNZ HUB by klun.z - TSB V8.1 (Fixed Farm Dummy Logic) ★ ]] --
 
--- [[ 1. DỌN DẸP THREAD & VÒNG LẶP CŨ NẾU RE-EXECUTE ]] --
+-- [[ 1. DỌN DẸP THREAD & VÒNG LẶP CŨ ]] --
 if getgenv().KlNZ_Connections then
     for _, conn in pairs(getgenv().KlNZ_Connections) do
         pcall(function() conn:Disconnect() end)
@@ -37,8 +37,8 @@ end
 local parentContainer = getSafeParent()
 local playerGui = p:FindFirstChildOfClass("PlayerGui") or p:WaitForChild("PlayerGui", 5)
 
--- [[ AUTO FIX LỖI UISTROKE CỦA TSB HOTBAR (CHỐNG CRASH LINE 2684) ]] --
-local hotbarFixThread = task.spawn(function()
+-- [[ AUTO FIX LỖI UISTROKE CỦA TSB HOTBAR ]] --
+task.spawn(function()
     while getgenv().KlNZ_Running do
         pcall(function()
             if playerGui then
@@ -50,7 +50,7 @@ local hotbarFixThread = task.spawn(function()
                                 local dummyStroke = Instance.new("UIStroke")
                                 dummyStroke.Name = "UIStroke"
                                 dummyStroke.Thickness = 1
-                                dummyStroke.Transparency = 1 -- Ẩn đi để không xấu UI gốc
+                                dummyStroke.Transparency = 1 
                                 dummyStroke.Parent = obj
                             end
                         end
@@ -91,16 +91,16 @@ local ACCENT_HEX = "#AA5AFF"
 
 -- [[ BIẾN TRẠNG THÁI & CẤU HÌNH ]] --
 local activeFarm = false
-local activeEscape1 = false 
+local activeEscape1 = true 
 local activeESP = true
 local systemLock1 = false 
 local activeCombat2 = false 
 local activeMelee = false 
-local activeNoclip = false -- Biến trạng thái No Clip
+local activeNoclip = false 
 local currentTarget = nil
 local _HITBOX_SIZE = 25 
 local _S = math.sqrt(10000) 
-local CONFIG1 = { EscapeHP = 25, SafeHP = 90, TargetHP = 30 }
+local CONFIG1 = { EscapeHP = 100, SafeHP = 90, TargetHP = 30 }
 local CONFIG2 = { SelectedTarget = nil }
 
 -- [[ 2. FPS COUNTER ]] --
@@ -124,22 +124,12 @@ mainGui.DisplayOrder = 10000
 local openBtn = Instance.new("ImageButton", mainGui)
 openBtn.Size, openBtn.Position = UDim2.new(0, 55, 0, 55), UDim2.new(0.02, 0, 0.15, 0)
 openBtn.BackgroundColor3 = Color3.fromRGB(25, 20, 35)
-openBtn.Image = "rbxassetid://90209832041834"
+openBtn.Image = "rbxthumb://type=Asset&id=90209832041834&w=420&h=420"
 openBtn.ScaleType = Enum.ScaleType.Crop
 openBtn.Active, openBtn.Draggable = true, true
 openBtn.ZIndex = 100
 Instance.new("UICorner", openBtn).CornerRadius = UDim.new(1, 0)
 local openStroke = Instance.new("UIStroke", openBtn); openStroke.Color = ACCENT_COLOR; openStroke.Thickness = 2
-
--- Tải ảnh Potato Queen bất đồng bộ
-task.spawn(function()
-    pcall(function()
-        local objects = game:GetObjects("rbxassetid://90209832041834")
-        if objects and objects[1] and objects[1]:IsA("Decal") then
-            openBtn.Image = objects[1].Texture
-        end
-    end)
-end)
 
 -- Khung Menu Chính
 local mainFrame = Instance.new("Frame", mainGui)
@@ -210,9 +200,11 @@ local function createPage(name)
     return page
 end
 
+-- TẠO CÁC TRANG NỘI DUNG
 local combatPage = createPage("Combat")
-local farmPage = createPage("Farm/Misc")
 local targetPage = createPage("Target")
+local farmPage = createPage("Farm/Misc")
+local serverPage = createPage("Server")
 combatPage.Visible = true
 
 local function createTabBtn(name, pageName)
@@ -232,9 +224,11 @@ local function createTabBtn(name, pageName)
     return tBtn
 end
 
+-- THỨ TỰ CÁC TAB
 local tab1 = createTabBtn("⚔️ COMBAT", "Combat"); tab1.TextColor3 = ACCENT_COLOR
-createTabBtn("🌾 MISC", "Farm/Misc")
 createTabBtn("🎯 TARGET", "Target")
+createTabBtn("🌾 MISC", "Farm/Misc")
+createTabBtn("🌐 SERVER", "Server")
 
 openBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
@@ -314,63 +308,24 @@ end
 AddSection(combatPage, "— COMBAT MODES —")
 AddToggle(combatPage, "🔥 MELEE RAGE", activeMelee, function(s)
     activeMelee = s
-    if activeMelee then activeCombat2 = false end
+    if activeMelee then 
+        activeCombat2 = false 
+        activeFarm = false
+    end
 end)
 
-AddToggle(combatPage, "🎯 AIM & KILL TARGET", activeCombat2, function(s)
-    activeCombat2 = s
-    if activeCombat2 then activeMelee = false end
+AddToggle(combatPage, "🤖 AUTO FARM DUMMY", activeFarm, function(s)
+    activeFarm = s
+    if activeFarm then
+        activeMelee = false
+        activeCombat2 = false
+    end
 end)
 
 AddSection(combatPage, "— CONFIGS —")
 AddInput(combatPage, "SET TARGET HP", 30, function(v) CONFIG1.TargetHP = v end)
 
--- [[ TAB 2: FARM & MISC ]] --
-AddSection(farmPage, "— AUTOMATION & UTILS —")
--- Dòng 1: Auto Farm Dummy
-AddToggle(farmPage, "🤖 AUTO FARM DUMMY", activeFarm, function(s)
-    activeFarm = s
-    if activeFarm then activeEscape1 = false end
-end)
-
--- Dòng 2: Auto Escape
-AddToggle(farmPage, "🛡️ AUTO ESCAPE (BAY TRỜI)", activeEscape1, function(s)
-    activeEscape1 = s
-    if not s then systemLock1 = false end
-end)
-
--- Dòng 3: No Clip (ĐÃ THÊM VÀO ĐÚNG VỊ TRÍ)
-AddToggle(farmPage, "👻 NO CLIP", activeNoclip, function(s)
-    activeNoclip = s
-end)
-
-AddInput(farmPage, "SET ESCAPE HP", 25, function(v) CONFIG1.EscapeHP = v end)
-
-AddSection(farmPage, "— SYSTEM & FIX LAG —")
-AddButton(farmPage, "⚡ 10% GRAPHICS + XOÁ CÂY", function()
-    task.spawn(function()
-        local L = game:GetService("Lighting")
-        L.GlobalShadows = false; L.Brightness = 0; L.FogEnd = 9e9
-        for _, v in pairs(L:GetChildren()) do if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then v:Destroy() end end
-        for _, v in pairs(workspace:GetDescendants()) do
-            local n = string.lower(v.Name)
-            if string.find(n, "tree") or string.find(n, "leaves") or string.find(n, "leaf") or string.find(n, "bush") then v:Destroy()
-            elseif v:IsA("BasePart") and not v:IsA("MeshPart") then v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0
-            elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Sparkles") then v:Destroy() end
-        end
-    end)
-end)
-
-AddButton(farmPage, "⭐ SUPER HOP SERVER", function()
-    local Http = game:GetService("HttpService"); local TP = game:GetService("TeleportService")
-    local success, res = pcall(function() return game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100") end)
-    if success then
-        local data = Http:JSONDecode(res)
-        for _, s in pairs(data.data) do if s.id ~= game.JobId and s.playing <= (s.maxPlayers - 2) then TP:TeleportToPlaceInstance(game.PlaceId, s.id, p) return end end
-    end
-end)
-
--- [[ TAB 3: TARGET SELECTOR ]] --
+-- [[ TAB 2: TARGET SELECTOR ]] --
 AddSection(targetPage, "— PLAYER SELECTOR —")
 local scrollTarget = Instance.new("Frame", targetPage)
 scrollTarget.Size = UDim2.new(0.95, 0, 0, 140)
@@ -435,7 +390,13 @@ local function updateTargetList()
 end
 
 updateTargetList()
-AddButton(targetPage, "🔄 REFRESH PLAYER LIST", updateTargetList)
+AddToggle(targetPage, "🎯 AIM & KILL TARGET", activeCombat2, function(s)
+    activeCombat2 = s
+    if activeCombat2 then 
+        activeMelee = false 
+        activeFarm = false
+    end
+end)
 
 task.spawn(function()
     while getgenv().KlNZ_Running and task.wait(0.2) do
@@ -445,10 +406,76 @@ task.spawn(function()
     end
 end)
 
+-- [[ TAB 3: MISC ]] --
+AddSection(farmPage, "— AUTOMATION & UTILS —")
+AddToggle(farmPage, "🛡️ AUTO ESCAPE (BAY TRỜI)", activeEscape1, function(s)
+    activeEscape1 = s
+end)
+
+AddToggle(farmPage, "👻 NO CLIP", activeNoclip, function(s)
+    activeNoclip = s
+end)
+
+AddSection(farmPage, "— SYSTEM & FIX LAG —")
+AddButton(farmPage, "⚡ 10% GRAPHICS + XOÁ CÂY", function()
+    task.spawn(function()
+        local L = game:GetService("Lighting")
+        L.GlobalShadows = false; L.Brightness = 0; L.FogEnd = 9e9
+        for _, v in pairs(L:GetChildren()) do if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then v:Destroy() end end
+        for _, v in pairs(workspace:GetDescendants()) do
+            local n = string.lower(v.Name)
+            if string.find(n, "tree") or string.find(n, "leaves") or string.find(n, "leaf") or string.find(n, "bush") then v:Destroy()
+            elseif v:IsA("BasePart") and not v:IsA("MeshPart") then v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Sparkles") then v:Destroy() end
+        end
+    end)
+end)
+
+-- [[ TAB 4: SERVER ]] --
+AddSection(serverPage, "— SERVER MANAGEMENT —")
+
+-- DÒNG 1: HOP SERVER NHIỀU NGƯỜI
+AddButton(serverPage, "🔥 HOP SERVER NHIỀU NGƯỜI", function()
+    local Http = game:GetService("HttpService"); local TP = game:GetService("TeleportService")
+    local success, res = pcall(function() return game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100") end)
+    if success then
+        local data = Http:JSONDecode(res)
+        for _, s in pairs(data.data) do
+            if s.id ~= game.JobId and s.playing < s.maxPlayers and s.playing > 1 then
+                TP:TeleportToPlaceInstance(game.PlaceId, s.id, p)
+                return
+            end
+        end
+    end
+end)
+
+-- DÒNG 2: HOP SERVER ÍT NGƯỜI
+AddButton(serverPage, "⭐ HOP SERVER ÍT NGƯỜI", function()
+    local Http = game:GetService("HttpService"); local TP = game:GetService("TeleportService")
+    local success, res = pcall(function() return game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100") end)
+    if success then
+        local data = Http:JSONDecode(res)
+        for _, s in pairs(data.data) do
+            if s.id ~= game.JobId and s.playing <= (s.maxPlayers - 2) then
+                TP:TeleportToPlaceInstance(game.PlaceId, s.id, p)
+                return
+            end
+        end
+    end
+end)
+
+-- DÒNG 3: REJOIN SERVER
+AddButton(serverPage, "🔄 REJOIN SERVER", function()
+    local TP = game:GetService("TeleportService")
+    TP:TeleportToPlaceInstance(game.PlaceId, game.JobId, p)
+end)
+
 -- [[ DUMMY LOGIC ]] --
 local function getWeakestDummy()
     for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and v.Name == "Weakest Dummy" and v:FindFirstChild("HumanoidRootPart") then return v.HumanoidRootPart end
+        if v:IsA("Model") and v.Name == "Weakest Dummy" and v:FindFirstChild("HumanoidRootPart") then 
+            return v.HumanoidRootPart 
+        end
     end
     return nil
 end
@@ -460,7 +487,6 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
     frames += 1; fps.TextColor3 = Color3.fromHSV((tick() * 0.2) % 1, 1, 1)
     if tick() - last >= 1 then fps.Text = "FPS: "..frames; frames = 0; last = tick() end
 
-    -- Xử lý No Clip liên tục qua Heartbeat
     if activeNoclip then
         local char = p.Character
         if char then
@@ -472,21 +498,12 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    if activeFarm then
-        local dummy = getWeakestDummy()
-        if dummy then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, dummy.Position)
-            local char = p.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then char:PivotTo(dummy.CFrame * CFrame.new(0, 0, 2.0)) end
-        end
-    end
-
     local char = p.Character; local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChild("Humanoid")
     if not (root and hum) then return end
     
-    -- ESP Low HP & Hitbox
-        for _, v in pairs(Players:GetPlayers()) do
+    -- XỬ LÝ HITBOX & ESP PLAYER
+    for _, v in pairs(Players:GetPlayers()) do
         if v ~= p and v.Character then
             if v.Character:FindFirstChild("Head") then
                 local head = v.Character.Head; local eHum = v.Character:FindFirstChild("Humanoid"); local bill = head:FindFirstChild("klunz_ESP")
@@ -511,7 +528,7 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
     end
     
     -- AUTO ESCAPE LOGIC
-    local isFighting = activeCombat2 or activeMelee
+    local isFighting = activeCombat2 or activeMelee or activeFarm
     local myHP = (hum.Health / hum.MaxHealth) * 100
     
     if activeEscape1 and not isFighting and myHP <= CONFIG1.EscapeHP then 
@@ -526,7 +543,7 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
         return 
     end
     
-    -- COMBAT TARGET LOCK LOGIC
+    -- CHỌN MỤC TIÊU (AIM TARGET / MELEE RAGE / AUTO FARM DUMMY)
     local target = nil
     if activeCombat2 and CONFIG2.SelectedTarget and CONFIG2.SelectedTarget.Character then
         local tHum = CONFIG2.SelectedTarget.Character:FindFirstChild("Humanoid")
@@ -539,8 +556,20 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
                 if ep > 0 and ep <= CONFIG1.TargetHP and ep < low then low = ep; target = v.Character:FindFirstChild("HumanoidRootPart") end
             end
         end
+    elseif activeFarm then
+        local dummy = getWeakestDummy()
+        if dummy then
+            target = dummy
+            -- Phóng to Hitbox Dummy
+            dummy.Size = Vector3.new(_HITBOX_SIZE, _HITBOX_SIZE, _HITBOX_SIZE)
+            dummy.Transparency = 0.8
+            dummy.BrickColor = BrickColor.new("Royal purple")
+            dummy.Material = Enum.Material.ForceField
+            dummy.CanCollide = false
+        end
     end
     
+    -- XỬ LÝ KHÓA VỊ TRÍ & TÍNH TOÁN BÁM THEO MỤC TIÊU
     if target then
         currentTarget = target 
         local tVel = target.AssemblyLinearVelocity
@@ -566,10 +595,10 @@ local hbConnection = RunService.Heartbeat:Connect(function(dt)
 end)
 table.insert(getgenv().KlNZ_Connections, hbConnection)
 
--- [[ TSB HITREG REMOTE LOGIC ]] --
+-- [[ TSB HITREG REMOTE LOGIC (ĐÁNH TAY TỰ ĐỘNG) ]] --
 task.spawn(function()
     while getgenv().KlNZ_Running do
-        if (activeCombat2 or activeMelee) and not systemLock1 then
+        if (activeCombat2 or activeMelee or activeFarm) and not systemLock1 then
             local char = p.Character
             local ev = char and char:FindFirstChild("Communicate")
             if ev and currentTarget then
@@ -592,4 +621,3 @@ local idleConn = p.Idled:Connect(function()
     end)
 end)
 table.insert(getgenv().KlNZ_Connections, idleConn)
-			
